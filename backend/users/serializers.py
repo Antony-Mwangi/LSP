@@ -1,7 +1,7 @@
 from rest_framework import serializers #For creating serializer
 from .models import User  #Import the custom User model
-from django.contrib.auth import authenticate  #Used to verify user credentials during login
-
+from django.contrib.auth import authenticate, get_user_model #Used to verify user credentials during login
+from django.contrib.auth.tokens import default_token_generator
 
 #REGISTER SERIALIZER
 
@@ -39,3 +39,32 @@ class LoginSerializer(serializers.Serializer):
         if not user.is_active: #If the account is disabled, raise an error
             raise serializers.ValidationError("Account disabled")
         return user #If validation passes, return the authenticated user object
+    
+class ForgotPasswordSerializer(serializers.Serializer):
+        email = serializers.EmailField()
+        
+
+
+User = get_user_model()
+
+class ResetPasswordSerializer(serializers.Serializer):
+    uid = serializers.CharField()
+    token = serializers.CharField()
+    password = serializers.CharField(write_only=True, min_length=6)
+
+    def validate(self, attrs):
+        uid = attrs.get('uid')
+        token = attrs.get('token')
+        password = attrs.get('password')
+
+        try:
+            user = User.objects.get(pk=uid)
+        except User.DoesNotExist:
+            raise serializers.ValidationError("Invalid user ID")
+
+        if not default_token_generator.check_token(user, token):
+            raise serializers.ValidationError("Invalid or expired token")
+
+        user.set_password(password)
+        user.save()
+        return attrs

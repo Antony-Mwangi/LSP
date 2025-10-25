@@ -17,7 +17,7 @@ from django.urls import reverse
 
 #Importing the custom User model and serializers
 from .models import User
-from .serializers import RegisterSerializer, LoginSerializer
+from .serializers import RegisterSerializer,ForgotPasswordSerializer, LoginSerializer, ResetPasswordSerializer
 
 
 #Functions to generate JWT tokens for a user
@@ -86,19 +86,22 @@ class LogoutView(generics.GenericAPIView):
     #FORGOT PASSWORD VIEW
 
 class ForgotPasswordView(generics.GenericAPIView):
+    serializer_class = ForgotPasswordSerializer
     #Anyone can request a password reset (no authentication required)
     permission_classes = [AllowAny]
 
     #Handles POST request when user submits their email
     def post(self, request):
-        #Exttract email from the request body
-        email = request.data.get('email')
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email']
         try:
             #Check if the user with this email exists
             user = User.objects.get(email=email)
             #Generate a uniques token for this user
             token = PasswordResetTokenGenerator().make_token(user)
-            reset_link = f"http://localhost:8000/reset-password/{user.pk}/{token}/"
+            reset_link = f"http://127.0.0.1:8000/api/reset-password/{user.pk}/{token}/"
+
            
            #send password reset mail
             send_mail(
@@ -138,3 +141,5 @@ class ResetPasswordView(generics.GenericAPIView):
         except User.DoesNotExist:
             #If user ID is invalid or not found
             return Response({"error": "User not found"}, status=404)
+        
+
